@@ -1,0 +1,19 @@
+[Desktop Entry]
+Encoding=UTF-8
+X-KDE-Library=ktexteditor_links
+X-KDE-PluginInfo-Author=
+X-KDE-PluginInfo-Email=
+X-KDE-PluginInfo-Name=ktexteditorlinks
+X-KDE-PluginInfo-Version=0.1
+X-KDE-PluginInfo-Website=http://kate.kde.org
+X-KDE-PluginInfo-Category=Editor
+X-KDE-PluginInfo-Depends=
+X-KDE-PluginInfo-License=GPL
+X-KDE-PluginInfo-EnabledByDefault=false
+X-KDE-ParentApp=kate
+X-KDE-Version=4.0
+X-KDE-ServiceTypes=KTextEditor/Plugin
+Type=Service
+Icon=
+Name=Links plugin
+Comment=Make links clickable
