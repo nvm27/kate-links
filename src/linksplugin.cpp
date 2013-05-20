@@ -38,6 +38,8 @@ LinksPluginView::LinksPluginView(KTextEditor::View *view) : QObject(view), KXMLG
 	setComponentData(LinksPluginFactory::componentData());
 
 	connect(view->document(), SIGNAL(textChanged(KTextEditor::Document*)), this, SLOT(scanDocument(KTextEditor::Document*)));
+
+	scanDocument(m_view->document());
 }
 
 LinksPluginView::~LinksPluginView() {}
@@ -58,12 +60,10 @@ void LinksPluginView::scanDocument(KTextEditor::Document* document) {
 	}
 
 	KTextEditor::Attribute::Ptr mouseInAttr(new KTextEditor::Attribute());
-	mouseInAttr->setFontBold(true);
+	mouseInAttr->setFontUnderline(true);
 
 	KTextEditor::Attribute::Ptr attr(new KTextEditor::Attribute());
 	attr->setDynamicAttribute(KTextEditor::Attribute::ActivateMouseIn, mouseInAttr);
-	//attr->setBackground(Qt::yellow);
-	//attr->setEffects(KTextEditor::Attribute::EffectPulse);
 
 	KTextEditor::Cursor start(0, 0);
 	KTextEditor::Range searchRange;
@@ -74,7 +74,6 @@ void LinksPluginView::scanDocument(KTextEditor::Document* document) {
 
 		found = docSearch->searchText(searchRange, urlPattern, KTextEditor::Search::Regex | KTextEditor::Search::CaseInsensitive);
 
-		// really, why QVector?
 		if (found.first().isValid()) {
 			KTextEditor::Range& f = found.first();
 
