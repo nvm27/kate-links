@@ -1,8 +1,6 @@
 #include "linksplugin.h"
 
 #include <ktexteditor/document.h>
-#include <ktexteditor/searchinterface.h>
-#include <ktexteditor/movinginterface.h>
 
 #include <kpluginfactory.h>
 #include <kpluginloader.h>
@@ -21,7 +19,7 @@ LinksPlugin::~LinksPlugin() {}
 
 void LinksPlugin::addView(KTextEditor::View *view) {
 	LinksPluginView *nview = new LinksPluginView(view);
-	m_views.append (nview);
+	m_views.append(nview);
 }
 
 void LinksPlugin::removeView(KTextEditor::View *view) {
@@ -34,12 +32,29 @@ void LinksPlugin::removeView(KTextEditor::View *view) {
 	}
 }
 
-LinksPluginView::LinksPluginView(KTextEditor::View *view) : QObject(view), KXMLGUIClient(view), m_view(view) {
+LinksPluginView::LinksPluginView(KTextEditor::View *view) : QObject(view), KXMLGUIClient(view), m_view(view), m_rangeAttr(new KTextEditor::Attribute()) {
 	setComponentData(LinksPluginFactory::componentData());
+
+	m_docMoving = qobject_cast<KTextEditor::MovingInterface*>(view->document());
+	m_docSearch = qobject_cast<KTextEditor::SearchInterface*>(view->document());
+
+	if (!m_docSearch || !m_docMoving) {
+		kDebug() << "SearchInterface or MovingInterface not implemented. seriously? don't know what to do now...";
+
+		return;
+	}
+
+	KAction* openAction = new KAction("Open URL", view->document());
+	connect(openAction, SIGNAL(triggered()), this, SLOT(openURL));
+
+	KTextEditor::Attribute::Ptr mouseInAttr(new KTextEditor::Attribute());
+	mouseInAttr->setFontUnderline(true);
+	m_rangeAttr->setDynamicAttribute(KTextEditor::Attribute::ActivateMouseIn, mouseInAttr);
+	//m_rangeAttr->associateAction(openAction);
 
 	connect(view->document(), SIGNAL(textChanged(KTextEditor::Document*)), this, SLOT(scanDocument(KTextEditor::Document*)));
 
-	scanDocument(m_view->document());
+	once = false;
 }
 
 LinksPluginView::~LinksPluginView() {}
@@ -50,29 +65,17 @@ QString LinksPluginView::emailPattern("\\b(\\w|\\.|-)+@(\\w|\\.|-)+\\.\\w+\\b");
 QString LinksPluginView::completePattern('(' + urlPattern + '|' + emailPattern + ')');
 
 void LinksPluginView::scanDocument(KTextEditor::Document* document) {
-	KTextEditor::SearchInterface* docSearch = qobject_cast<KTextEditor::SearchInterface*>(document);
-	KTextEditor::MovingInterface* docMoving = qobject_cast<KTextEditor::MovingInterface*>(document);
-
-	if (!docSearch || !docMoving) {
-		kDebug() << "SearchInterface or MovingInterface not implemented. seriously? don't know what to do now...";
-
+	if (once)
 		return;
-	}
 
-	KTextEditor::Attribute::Ptr mouseInAttr(new KTextEditor::Attribute());
-	mouseInAttr->setFontUnderline(true);
+	scanRange(document->documentRange());
+	once = true;
+}
 
-	KTextEditor::Attribute::Ptr attr(new KTextEditor::Attribute());
-	attr->setDynamicAttribute(KTextEditor::Attribute::ActivateMouseIn, mouseInAttr);
-
-	KTextEditor::Cursor start(0, 0);
-	KTextEditor::Range searchRange;
-
+void LinksPluginView::scanRange(KTextEditor::Range range) {
 	QVector<KTextEditor::Range> found;
 	forever {
-		searchRange.setRange(start, document->documentEnd());
-
-		found = docSearch->searchText(searchRange, urlPattern, KTextEditor::Search::Regex | KTextEditor::Search::CaseInsensitive);
+		found = m_docSearch->searchText(range, urlPattern, KTextEditor::Search::Regex | KTextEditor::Search::CaseInsensitive);
 
 		if (found.first().isValid()) {
 			KTextEditor::Range& f = found.first();
@@ -81,16 +84,22 @@ void LinksPluginView::scanDocument(KTextEditor::Document* document) {
 			kDebug() << "begin: " << f.start().line() << ": " << f.start().column();
 			kDebug() << "end: " << f.end().line() << ": " << f.end().column();
 
-			KTextEditor::MovingRange* mr = docMoving->newMovingRange(f);
-			mr->setAttribute(attr);
+			KTextEditor::MovingRange* mr = m_docMoving->newMovingRange(f);
 			mr->setView(m_view);
+			mr->setAttribute(m_rangeAttr);
+			mr->setFeedback(&m_feedback);
+			mr->setInsertBehaviors(KTextEditor::MovingRange::ExpandRight);
 			//mr->setZDepth(-90000.0); // Set the z-depth to slightly worse than the selection
 			mr->setAttributeOnlyForViews(true);
 
-			start = f.end();
+			range.setRange(f.end(), range.end());
 		} else
 			break;
 	}
+}
+
+void LinksPluginView:: openURL() {
+	kDebug() << "open!";
 }
 
 #include "linksplugin.moc"
