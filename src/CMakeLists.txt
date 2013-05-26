@@ -1,4 +1,4 @@
-set(ktexteditor_links_PART_SRCS linksplugin.cpp )
+set(ktexteditor_links_PART_SRCS linksplugin.cpp linksplugindocument.cpp)
 
 kde4_add_plugin(ktexteditor_links ${ktexteditor_links_PART_SRCS})
 
