@@ -20,6 +20,10 @@ LinksPluginDocument::LinksPluginDocument(KTextEditor::Document* document) : m_do
 	connect(document, SIGNAL(textChanged(KTextEditor::Document*)), this, SLOT(scanDocument(KTextEditor::Document*)));
 
 	once = false;
+
+	m_action = new KAction("Open URL", document);
+	connect(m_action, SIGNAL(triggered()), this, SLOT(openLink()));
+	connect(m_document, SIGNAL(viewCreated(KTextEditor::Document*, KTextEditor::View*)), this, SLOT(connectViewMenu(KTextEditor::Document*, KTextEditor::View*)));
 }
 
 LinksPluginDocument::~LinksPluginDocument() {}
@@ -45,11 +49,9 @@ void LinksPluginDocument::scanRange(KTextEditor::Range range) {
 			kDebug() << "end: " << f.end().line() << ": " << f.end().column();
 
 			KTextEditor::MovingRange* mr = m_moving->newMovingRange(f);
-			//mr->setView(m_view);
 			mr->setAttribute(m_rangeAttr);
 			mr->setFeedback(&m_feedback);
 			mr->setInsertBehaviors(KTextEditor::MovingRange::DoNotExpand);
-			//mr->setZDepth(-90000.0); // Set the z-depth to slightly worse than the selection
 			mr->setAttributeOnlyForViews(true);
 
 			range.setRange(f.end(), range.end());
@@ -58,8 +60,28 @@ void LinksPluginDocument::scanRange(KTextEditor::Range range) {
 	}
 }
 
-void LinksPluginDocument:: openLink() {
-	kDebug() << "open!";
+void LinksPluginDocument::openLink() {
+	QHashIterator<KTextEditor::View*, QSet<KTextEditor::MovingRange*> > it(m_feedback.m_ranges);
+	while (it.hasNext()) {
+		it.next();
+
+		foreach (KTextEditor::MovingRange* mr, it.value()) {
+			QString link = m_document->text(mr->toRange());
+			kDebug() << "opening link: " << link << " " << *mr;
+		}
+	}
+}
+
+void LinksPluginDocument::modifyMenu(KTextEditor::View *view, QMenu* menu) {
+	if (!m_feedback.m_ranges[view].isEmpty())
+		menu->addAction(m_action);
+}
+
+void LinksPluginDocument::connectViewMenu(KTextEditor::Document* document, KTextEditor::View* view) {
+	Q_UNUSED(document);
+	kDebug() << "view created!";
+
+	connect(view, SIGNAL(contextMenuAboutToShow(KTextEditor::View*, QMenu*)), this, SLOT(modifyMenu(KTextEditor::View*, QMenu*)));
 }
 
 #include "linksplugindocument.moc"

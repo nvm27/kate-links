@@ -1,4 +1,5 @@
 #include "linksplugin.h"
+#include "linksplugindocument.h"
 
 #include <kpluginfactory.h>
 #include <kpluginloader.h>

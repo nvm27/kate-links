@@ -1,13 +1,13 @@
 #ifndef _LINKS_PLUGIN_H_
 #define _LINKS_PLUGIN_H_
 
-#include "linksplugindocument.h"
-
 #include <ktexteditor/plugin.h>
 #include <ktexteditor/document.h>
 
 #include <QtCore/QList>
 #include <QtCore/QString>
+
+class LinksPluginDocument;
 
 class LinksPlugin : public KTextEditor::Plugin {
 	Q_OBJECT
