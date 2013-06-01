@@ -10,51 +10,28 @@
 #include <ktexteditor/movinginterface.h>
 #include <ktexteditor/movingrangefeedback.h>
 
-class LinksFeedback : public KTextEditor::MovingRangeFeedback {
-public:
-	virtual ~LinksFeedback() {};
-
-	virtual void caretEnteredRange(KTextEditor::MovingRange* range, KTextEditor::View* view) {
-		m_ranges[view].insert(range);
-
-		kDebug() << "entered range " << *range;
-	}
-
-	virtual void caretExitedRange(KTextEditor::MovingRange* range, KTextEditor::View* view) {
-		m_ranges[view].remove(range);
-
-		kDebug() << "exited range " << *range;
-	}
-
-	virtual void rangeEmpty(KTextEditor::MovingRange* range) {
-		kDebug() << "deleting empty range " << *range;
-
-		clearRanges(range);
-		delete range;
-	}
-
-	virtual void rangeInvalid(KTextEditor::MovingRange* range) {
-		kDebug() << "deleting invalid range " << *range;
-
-		clearRanges(range);
-		delete range;
-	}
-
-private:
-	inline void clearRanges(KTextEditor::MovingRange* range) {
-		QMutableHashIterator<KTextEditor::View*, QSet<KTextEditor::MovingRange*> > it(m_ranges);
-		while (it.hasNext()) {
-			it.next();
-			it.value().remove(range);
-		}
-	}
-
-public:
-	QHash<KTextEditor::View*, QSet<KTextEditor::MovingRange*> > m_ranges;
-};
 
 class LinksPluginDocument : public QObject {
 	Q_OBJECT
+
+private:
+	class LinksFeedback : public KTextEditor::MovingRangeFeedback {
+
+		friend class LinksPluginDocument;
+
+	public:
+		virtual ~LinksFeedback();
+		virtual void caretEnteredRange(KTextEditor::MovingRange* range, KTextEditor::View* view);
+		virtual void caretExitedRange(KTextEditor::MovingRange* range, KTextEditor::View* view);
+		virtual void rangeEmpty(KTextEditor::MovingRange* range);
+		virtual void rangeInvalid(KTextEditor::MovingRange* range);
+
+	private:
+		void clearRanges(KTextEditor::MovingRange* range);
+
+	private:
+		QHash<KTextEditor::View*, QSet<KTextEditor::MovingRange*> > m_ranges;
+	};
 
 public:
 	LinksPluginDocument(KTextEditor::Document* document);
@@ -64,10 +41,12 @@ public:
 	inline KTextEditor::Document* document() { return m_document; }
 
 public slots:
+	void handleView(KTextEditor::Document* document, KTextEditor::View* view);
 	void scanDocument(KTextEditor::Document* document);
-	void openLink();
-	void modifyMenu(KTextEditor::View *view, QMenu* menu);
-	void connectViewMenu(KTextEditor::Document* document, KTextEditor::View* view);
+	void modifyContextMenu(KTextEditor::View* view, QMenu* menu);
+
+	void openUrl();
+	void copyUrl();
 
 private:
 	void scanRange(KTextEditor::Range range);
@@ -80,15 +59,18 @@ private:
 
 	KTextEditor::Attribute::Ptr m_rangeAttr;
 
-	KAction* m_action;
+	QAction* m_openAction;
+	QAction* m_copyAction;
+	QAction* m_separatorAction;
 
 	LinksFeedback m_feedback;
 	bool once, m_valid;
 
-public:
+private:
     static QString emailPattern;
     static QString urlPattern;
     static QString completePattern;
+
 };
 
 #endif // _LINKS_PLUGIN_DOCUMENT_H_
