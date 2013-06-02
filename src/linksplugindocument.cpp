@@ -23,9 +23,7 @@ LinksPluginDocument::LinksPluginDocument(KTextEditor::Document* document) : m_do
 	mouseInAttr->setFontUnderline(true);
 	m_rangeAttr->setDynamicAttribute(KTextEditor::Attribute::ActivateMouseIn, mouseInAttr);
 
-	connect(document, SIGNAL(textChanged(KTextEditor::Document*)), this, SLOT(scanDocument(KTextEditor::Document*)));
-
-	once = false;
+	connect(document, SIGNAL(textChanged(KTextEditor::Document*)), this, SLOT(documentFirstChange(KTextEditor::Document*)));
 
 	// locale workaround for now
 	KLocale tmpLocale(*KGlobal::locale());
@@ -51,15 +49,37 @@ void LinksPluginDocument::handleView(KTextEditor::Document* document, KTextEdito
 	Q_UNUSED(document);
 
 	connect(view, SIGNAL(contextMenuAboutToShow(KTextEditor::View*, QMenu*)), this, SLOT(modifyContextMenu(KTextEditor::View*, QMenu*)));
+	connect(view, SIGNAL(textInserted(KTextEditor::View*, const KTextEditor::Cursor&, const QString&)), this, SLOT(viewTextInserted(KTextEditor::View*, const KTextEditor::Cursor&, const QString&)));
 }
 
-
-void LinksPluginDocument::scanDocument(KTextEditor::Document* document) {
-	if (once)
-		return;
+void LinksPluginDocument::documentFirstChange(KTextEditor::Document* document) {
+	disconnect(document, SIGNAL(textChanged(KTextEditor::Document*)), this, SLOT(documentFirstChange(KTextEditor::Document*)));
 
 	scanRange(document->documentRange());
-	once = true;
+}
+
+void LinksPluginDocument::viewTextInserted(KTextEditor::View* view, const KTextEditor::Cursor& position, const QString& text) {
+	kDebug() << "test";
+}
+
+void LinksPluginDocument::rescanLine(int line) {
+	typedef std::set<const KTextEditor::MovingCursor*, LinksPluginDocument::MovingCursorCompare>::iterator cursor_iterator;
+
+	KTextEditor::Cursor begin(line, 0);
+	KTextEditor::Cursor end(line+1, 0);
+
+	KTextEditor::MovingCursor* m_begin = m_moving->newMovingCursor(begin);
+	KTextEditor::MovingCursor* m_end = m_moving->newMovingCursor(end);
+
+	cursor_iterator begin_it = m_cursors.lower_bound(m_begin);
+	cursor_iterator end_it = m_cursors.lower_bound(m_end);
+
+	while (begin_it != end_it) {
+
+		++begin_it;
+	}
+
+	scanRange(KTextEditor::Range(begin, end));
 }
 
 void LinksPluginDocument::scanRange(KTextEditor::Range range) {
@@ -77,8 +97,10 @@ void LinksPluginDocument::scanRange(KTextEditor::Range range) {
 			KTextEditor::MovingRange* mr = m_moving->newMovingRange(f);
 			mr->setAttribute(m_rangeAttr);
 			mr->setFeedback(&m_feedback);
-			mr->setInsertBehaviors(KTextEditor::MovingRange::DoNotExpand);
+			mr->setInsertBehaviors(KTextEditor::MovingRange::ExpandLeft | KTextEditor::MovingRange::ExpandRight);
 			mr->setAttributeOnlyForViews(true);
+
+			m_cursors.insert(&mr->start());
 
 			range.setRange(f.end(), range.end());
 		} else
@@ -145,34 +167,37 @@ void LinksPluginDocument::copyUrl() {
 	}
 }
 
-// LinksFeedback class methods
-LinksPluginDocument::LinksFeedback::~LinksFeedback() {}
-
-void LinksPluginDocument::LinksFeedback::caretEnteredRange(KTextEditor::MovingRange* range, KTextEditor::View* view) {
-	m_ranges[view].insert(range);
-}
-
-void LinksPluginDocument::LinksFeedback::caretExitedRange(KTextEditor::MovingRange* range, KTextEditor::View* view) {
-	m_ranges[view].remove(range);
-}
-
-void LinksPluginDocument::LinksFeedback::rangeEmpty(KTextEditor::MovingRange* range) {
-	clearRanges(range);
-	delete range;
-}
-
-void LinksPluginDocument::LinksFeedback::rangeInvalid(KTextEditor::MovingRange* range) {
-	clearRanges(range);
-	delete range;
-}
-
-void LinksPluginDocument::LinksFeedback::clearRanges(KTextEditor::MovingRange* range) {
-	QMutableHashIterator<KTextEditor::View*, QSet<KTextEditor::MovingRange*> > it(m_ranges);
-
+void LinksPluginDocument::deleteMovingRange(KTextEditor::MovingRange* range) {
+	QMutableHashIterator<KTextEditor::View*, QSet<KTextEditor::MovingRange*> > it(m_feedback.m_ranges);
 	while (it.hasNext()) {
 		it.next();
 		it.value().remove(range);
 	}
+
+	m_cursors.erase(&range->start());
+
+	delete range;
+}
+
+// LinksFeedback class methods
+LinksPluginDocument::LinksFeedback::~LinksFeedback() {}
+
+void LinksPluginDocument::LinksFeedback::caretEnteredRange(KTextEditor::MovingRange* range, KTextEditor::View* view) {
+	kDebug() << "entered!";
+	m_ranges[view].insert(range);
+}
+
+void LinksPluginDocument::LinksFeedback::caretExitedRange(KTextEditor::MovingRange* range, KTextEditor::View* view) {
+	kDebug() << "exited!";
+	m_ranges[view].remove(range);
+}
+
+void LinksPluginDocument::LinksFeedback::rangeEmpty(KTextEditor::MovingRange* range) {
+	//deleteMovingRange(range);
+}
+
+void LinksPluginDocument::LinksFeedback::rangeInvalid(KTextEditor::MovingRange* range) {
+	//deleteMovingRange(range);
 }
 
 #include "linksplugindocument.moc"

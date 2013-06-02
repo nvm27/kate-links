@@ -6,10 +6,12 @@
 #include <kaction.h>
 #include <ktexteditor/view.h>
 #include <ktexteditor/document.h>
+#include <ktexteditor/movingcursor.h>
 #include <ktexteditor/searchinterface.h>
 #include <ktexteditor/movinginterface.h>
 #include <ktexteditor/movingrangefeedback.h>
 
+#include <set>
 
 class LinksPluginDocument : public QObject {
 	Q_OBJECT
@@ -27,10 +29,13 @@ private:
 		virtual void rangeInvalid(KTextEditor::MovingRange* range);
 
 	private:
-		void clearRanges(KTextEditor::MovingRange* range);
-
-	private:
 		QHash<KTextEditor::View*, QSet<KTextEditor::MovingRange*> > m_ranges;
+	};
+
+	struct MovingCursorCompare {
+		bool operator() (const KTextEditor::MovingCursor* const& lhs, const KTextEditor::MovingCursor* const& rhs) {
+			return *lhs < *rhs;
+		}
 	};
 
 public:
@@ -42,14 +47,17 @@ public:
 
 public slots:
 	void handleView(KTextEditor::Document* document, KTextEditor::View* view);
-	void scanDocument(KTextEditor::Document* document);
 	void modifyContextMenu(KTextEditor::View* view, QMenu* menu);
+	void documentFirstChange(KTextEditor::Document* document);
+	void viewTextInserted(KTextEditor::View* view, const KTextEditor::Cursor& position, const QString& text);
 
 	void openUrl();
 	void copyUrl();
 
 private:
+	void rescanLine(int line);
 	void scanRange(KTextEditor::Range range);
+	void deleteMovingRange(KTextEditor::MovingRange* range);
 
 private:
 	KTextEditor::Document* m_document;
@@ -64,13 +72,15 @@ private:
 	QAction* m_separatorAction;
 
 	LinksFeedback m_feedback;
-	bool once, m_valid;
+	bool m_valid;
+
+	// MovingCursors should hold inequality
+	std::set<const KTextEditor::MovingCursor*, LinksPluginDocument::MovingCursorCompare> m_cursors;
 
 private:
     static QString emailPattern;
     static QString urlPattern;
     static QString completePattern;
-
 };
 
 #endif // _LINKS_PLUGIN_DOCUMENT_H_
