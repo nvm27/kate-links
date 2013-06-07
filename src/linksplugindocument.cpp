@@ -6,12 +6,14 @@
 
 #include <klocale.h>
 
+#include <vector>
+
 // from Konsole source code
 QString LinksPluginDocument::urlPattern("(www\\.(?!\\.)|[a-z][a-z0-9+.-]*://)[^\\s<>'\"]+[^!,\\.\\s<>'\"\\]\\)\\:]");
 QString LinksPluginDocument::emailPattern("\\b(\\w|\\.|-)+@(\\w|\\.|-)+\\.\\w+\\b");
 QString LinksPluginDocument::completePattern('(' + urlPattern + '|' + emailPattern + ')');
 
-LinksPluginDocument::LinksPluginDocument(KTextEditor::Document* document) : m_document(document), m_rangeAttr(new KTextEditor::Attribute()) {
+LinksPluginDocument::LinksPluginDocument(KTextEditor::Document* document) : m_document(document), m_rangeAttr(new KTextEditor::Attribute()), m_feedback(this) {
 	m_moving = qobject_cast<KTextEditor::MovingInterface*>(document);
 	m_search = qobject_cast<KTextEditor::SearchInterface*>(document);
 
@@ -59,27 +61,28 @@ void LinksPluginDocument::documentFirstChange(KTextEditor::Document* document) {
 }
 
 void LinksPluginDocument::viewTextInserted(KTextEditor::View* view, const KTextEditor::Cursor& position, const QString& text) {
-	kDebug() << "test";
+	rescanLine(position.line());
 }
 
 void LinksPluginDocument::rescanLine(int line) {
-	typedef std::set<const KTextEditor::MovingCursor*, LinksPluginDocument::MovingCursorCompare>::iterator cursor_iterator;
-
 	KTextEditor::Cursor begin(line, 0);
-	KTextEditor::Cursor end(line+1, 0);
+	KTextEditor::Cursor end(line, m_document->lineLength(line));
 
 	KTextEditor::MovingCursor* m_begin = m_moving->newMovingCursor(begin);
 	KTextEditor::MovingCursor* m_end = m_moving->newMovingCursor(end);
 
-	cursor_iterator begin_it = m_cursors.lower_bound(m_begin);
-	cursor_iterator end_it = m_cursors.lower_bound(m_end);
+	std::vector<const KTextEditor::MovingCursor*> pointers(m_cursors.lower_bound(m_begin), m_cursors.upper_bound(m_end));
 
-	while (begin_it != end_it) {
-
-		++begin_it;
+	std::vector<const KTextEditor::MovingCursor*>::iterator it = pointers.begin();
+	for (; it != pointers.end(); ++it) {
+		kDebug() << "deleting range: " << (*it)->range();
+		deleteMovingRange((*it)->range());
 	}
 
 	scanRange(KTextEditor::Range(begin, end));
+
+	delete m_begin;
+	delete m_end;
 }
 
 void LinksPluginDocument::scanRange(KTextEditor::Range range) {
@@ -175,29 +178,27 @@ void LinksPluginDocument::deleteMovingRange(KTextEditor::MovingRange* range) {
 	}
 
 	m_cursors.erase(&range->start());
-
 	delete range;
 }
 
 // LinksFeedback class methods
+LinksPluginDocument::LinksFeedback::LinksFeedback(LinksPluginDocument* plugin) : m_plugin(plugin) {}
 LinksPluginDocument::LinksFeedback::~LinksFeedback() {}
 
 void LinksPluginDocument::LinksFeedback::caretEnteredRange(KTextEditor::MovingRange* range, KTextEditor::View* view) {
-	kDebug() << "entered!";
 	m_ranges[view].insert(range);
 }
 
 void LinksPluginDocument::LinksFeedback::caretExitedRange(KTextEditor::MovingRange* range, KTextEditor::View* view) {
-	kDebug() << "exited!";
 	m_ranges[view].remove(range);
 }
 
 void LinksPluginDocument::LinksFeedback::rangeEmpty(KTextEditor::MovingRange* range) {
-	//deleteMovingRange(range);
+	m_plugin->deleteMovingRange(range);
 }
 
 void LinksPluginDocument::LinksFeedback::rangeInvalid(KTextEditor::MovingRange* range) {
-	//deleteMovingRange(range);
+	m_plugin->deleteMovingRange(range);
 }
 
 #include "linksplugindocument.moc"

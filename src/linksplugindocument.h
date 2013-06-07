@@ -22,6 +22,7 @@ private:
 		friend class LinksPluginDocument;
 
 	public:
+		LinksFeedback(LinksPluginDocument* plugin);
 		virtual ~LinksFeedback();
 		virtual void caretEnteredRange(KTextEditor::MovingRange* range, KTextEditor::View* view);
 		virtual void caretExitedRange(KTextEditor::MovingRange* range, KTextEditor::View* view);
@@ -29,6 +30,7 @@ private:
 		virtual void rangeInvalid(KTextEditor::MovingRange* range);
 
 	private:
+		LinksPluginDocument* m_plugin;
 		QHash<KTextEditor::View*, QSet<KTextEditor::MovingRange*> > m_ranges;
 	};
 
