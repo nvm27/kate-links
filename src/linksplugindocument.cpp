@@ -51,17 +51,30 @@ void LinksPluginDocument::handleView(KTextEditor::Document* document, KTextEdito
 	Q_UNUSED(document);
 
 	connect(view, SIGNAL(contextMenuAboutToShow(KTextEditor::View*, QMenu*)), this, SLOT(modifyContextMenu(KTextEditor::View*, QMenu*)));
-	connect(view, SIGNAL(textInserted(KTextEditor::View*, const KTextEditor::Cursor&, const QString&)), this, SLOT(viewTextInserted(KTextEditor::View*, const KTextEditor::Cursor&, const QString&)));
 }
 
 void LinksPluginDocument::documentFirstChange(KTextEditor::Document* document) {
 	disconnect(document, SIGNAL(textChanged(KTextEditor::Document*)), this, SLOT(documentFirstChange(KTextEditor::Document*)));
 
+	connect(document, SIGNAL(textInserted(KTextEditor::Document*, const KTextEditor::Range&)), this, SLOT(documentTextInserted(KTextEditor::Document*, const KTextEditor::Range&)));
+	connect(document, SIGNAL(textRemoved(KTextEditor::Document*, const KTextEditor::Range&)), this, SLOT(documentTextRemoved(KTextEditor::Document*, const KTextEditor::Range&)));
+
 	scanRange(document->documentRange());
 }
 
-void LinksPluginDocument::viewTextInserted(KTextEditor::View* view, const KTextEditor::Cursor& position, const QString& text) {
-	rescanLine(position.line());
+void LinksPluginDocument::documentTextInserted(KTextEditor::Document* document, const KTextEditor::Range& range) {
+	Q_UNUSED(document);
+
+	rescanLine(range.start().line());
+}
+
+void LinksPluginDocument::documentTextRemoved(KTextEditor::Document* document, const KTextEditor::Range& range) {
+	Q_UNUSED(document);
+
+	rescanLine(range.start().line());
+
+	if (!range.onSingleLine())
+		rescanLine(range.end().line());
 }
 
 void LinksPluginDocument::rescanLine(int line) {
@@ -74,10 +87,8 @@ void LinksPluginDocument::rescanLine(int line) {
 	std::vector<const KTextEditor::MovingCursor*> pointers(m_cursors.lower_bound(m_begin), m_cursors.upper_bound(m_end));
 
 	std::vector<const KTextEditor::MovingCursor*>::iterator it = pointers.begin();
-	for (; it != pointers.end(); ++it) {
-		kDebug() << "deleting range: " << (*it)->range();
+	for (; it != pointers.end(); ++it)
 		deleteMovingRange((*it)->range());
-	}
 
 	scanRange(KTextEditor::Range(begin, end));
 
@@ -93,14 +104,12 @@ void LinksPluginDocument::scanRange(KTextEditor::Range range) {
 		if (found.first().isValid()) {
 			KTextEditor::Range& f = found.first();
 
-			kDebug() << "found pattern: ";
-			kDebug() << "begin: " << f.start().line() << ": " << f.start().column();
-			kDebug() << "end: " << f.end().line() << ": " << f.end().column();
+			kDebug() << "found pattern: " << f;
 
 			KTextEditor::MovingRange* mr = m_moving->newMovingRange(f);
 			mr->setAttribute(m_rangeAttr);
 			mr->setFeedback(&m_feedback);
-			mr->setInsertBehaviors(KTextEditor::MovingRange::ExpandLeft | KTextEditor::MovingRange::ExpandRight);
+			//mr->setInsertBehaviors(KTextEditor::MovingRange::ExpandLeft | KTextEditor::MovingRange::ExpandRight);
 			mr->setAttributeOnlyForViews(true);
 
 			m_cursors.insert(&mr->start());
@@ -171,13 +180,15 @@ void LinksPluginDocument::copyUrl() {
 }
 
 void LinksPluginDocument::deleteMovingRange(KTextEditor::MovingRange* range) {
+	kDebug() << "deleting range: " << range;
+
 	QMutableHashIterator<KTextEditor::View*, QSet<KTextEditor::MovingRange*> > it(m_feedback.m_ranges);
 	while (it.hasNext()) {
 		it.next();
 		it.value().remove(range);
 	}
 
-	m_cursors.erase(&range->start());
+	m_cursors.erase(&(range->start()));
 	delete range;
 }
 
@@ -194,10 +205,12 @@ void LinksPluginDocument::LinksFeedback::caretExitedRange(KTextEditor::MovingRan
 }
 
 void LinksPluginDocument::LinksFeedback::rangeEmpty(KTextEditor::MovingRange* range) {
+	kDebug() << "range becomes empty: " << range;
 	m_plugin->deleteMovingRange(range);
 }
 
 void LinksPluginDocument::LinksFeedback::rangeInvalid(KTextEditor::MovingRange* range) {
+	kDebug() << "range becomes invalid: " << range;
 	m_plugin->deleteMovingRange(range);
 }
 

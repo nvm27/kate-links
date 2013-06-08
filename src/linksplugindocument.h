@@ -36,6 +36,12 @@ private:
 
 	struct MovingCursorCompare {
 		bool operator() (const KTextEditor::MovingCursor* const& lhs, const KTextEditor::MovingCursor* const& rhs) {
+			if (lhs == 0 || rhs == 0)
+				kDebug() << "this should never be NULL";
+
+			if (!lhs->isValid())
+				kDebug() << "comaprision between invalid cursors";
+
 			return *lhs < *rhs;
 		}
 	};
@@ -51,7 +57,8 @@ public slots:
 	void handleView(KTextEditor::Document* document, KTextEditor::View* view);
 	void modifyContextMenu(KTextEditor::View* view, QMenu* menu);
 	void documentFirstChange(KTextEditor::Document* document);
-	void viewTextInserted(KTextEditor::View* view, const KTextEditor::Cursor& position, const QString& text);
+	void documentTextInserted(KTextEditor::Document* document, const KTextEditor::Range& range);
+	void documentTextRemoved(KTextEditor::Document* document, const KTextEditor::Range& range);
 
 	void openUrl();
 	void copyUrl();
