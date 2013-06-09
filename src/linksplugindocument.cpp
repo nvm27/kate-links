@@ -59,7 +59,24 @@ void LinksPluginDocument::documentFirstChange(KTextEditor::Document* document) {
 	connect(document, SIGNAL(textInserted(KTextEditor::Document*, const KTextEditor::Range&)), this, SLOT(documentTextInserted(KTextEditor::Document*, const KTextEditor::Range&)));
 	connect(document, SIGNAL(textRemoved(KTextEditor::Document*, const KTextEditor::Range&)), this, SLOT(documentTextRemoved(KTextEditor::Document*, const KTextEditor::Range&)));
 
+	connect(document, SIGNAL(aboutToClose(KTextEditor::Document*)), this, SLOT(documentAboutToCloseOrReload(KTextEditor::Document*)));
+	connect(document, SIGNAL(aboutToReload(KTextEditor::Document*)), this, SLOT(documentAboutToCloseOrReload(KTextEditor::Document*)));
+	connect(document, SIGNAL(reloaded(KTextEditor::Document*)), this, SLOT(documentReloaded(KTextEditor::Document*)));
+
 	scanRange(document->documentRange());
+}
+
+void LinksPluginDocument::documentAboutToCloseOrReload(KTextEditor::Document* document) {
+	Q_UNUSED(document);
+
+	m_cursors.clear();
+	m_feedback.m_ranges.clear();
+}
+
+void LinksPluginDocument::documentReloaded(KTextEditor::Document* document) {
+	Q_UNUSED(document);
+
+	kDebug() << "document reloaded";
 }
 
 void LinksPluginDocument::documentTextInserted(KTextEditor::Document* document, const KTextEditor::Range& range) {
@@ -71,10 +88,8 @@ void LinksPluginDocument::documentTextInserted(KTextEditor::Document* document, 
 void LinksPluginDocument::documentTextRemoved(KTextEditor::Document* document, const KTextEditor::Range& range) {
 	Q_UNUSED(document);
 
+	kDebug() << "text removed: " << range;
 	rescanLine(range.start().line());
-
-	if (!range.onSingleLine())
-		rescanLine(range.end().line());
 }
 
 void LinksPluginDocument::rescanLine(int line) {
@@ -110,6 +125,7 @@ void LinksPluginDocument::scanRange(KTextEditor::Range range) {
 			mr->setAttribute(m_rangeAttr);
 			mr->setFeedback(&m_feedback);
 			//mr->setInsertBehaviors(KTextEditor::MovingRange::ExpandLeft | KTextEditor::MovingRange::ExpandRight);
+			mr->setEmptyBehavior(KTextEditor::MovingRange::AllowEmpty);
 			mr->setAttributeOnlyForViews(true);
 
 			m_cursors.insert(&mr->start());
@@ -210,8 +226,11 @@ void LinksPluginDocument::LinksFeedback::rangeEmpty(KTextEditor::MovingRange* ra
 }
 
 void LinksPluginDocument::LinksFeedback::rangeInvalid(KTextEditor::MovingRange* range) {
-	kDebug() << "range becomes invalid: " << range;
-	m_plugin->deleteMovingRange(range);
+	kDebug() << "range becomes invalid";
+	//m_plugin->deleteMovingRange(range);
+
+	// happens when closing document, but we have m_cursors and m_rages cleared
+	delete range;
 }
 
 #include "linksplugindocument.moc"
