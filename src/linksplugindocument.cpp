@@ -25,8 +25,6 @@ LinksPluginDocument::LinksPluginDocument(KTextEditor::Document* document) : m_do
 	mouseInAttr->setFontUnderline(true);
 	m_rangeAttr->setDynamicAttribute(KTextEditor::Attribute::ActivateMouseIn, mouseInAttr);
 
-	connect(document, SIGNAL(textChanged(KTextEditor::Document*)), this, SLOT(documentFirstChange(KTextEditor::Document*)));
-
 	// locale workaround for now
 	KLocale tmpLocale(*KGlobal::locale());
 	tmpLocale.insertCatalog("konsole");
@@ -41,11 +39,20 @@ LinksPluginDocument::LinksPluginDocument(KTextEditor::Document* document) : m_do
 	m_copyAction = new QAction(ki18n("Copy Link Address").toString(&tmpLocale), document);
 	connect(m_copyAction, SIGNAL(triggered()), this, SLOT(copyUrl()));
 
+	connect(document, SIGNAL(textChanged(KTextEditor::Document*)), this, SLOT(documentFirstChange()));
+
 	// handle views creating
 	connect(m_document, SIGNAL(viewCreated(KTextEditor::Document*, KTextEditor::View*)), this, SLOT(handleView(KTextEditor::Document*, KTextEditor::View*)));
 }
 
-LinksPluginDocument::~LinksPluginDocument() {}
+LinksPluginDocument::~LinksPluginDocument() {
+	if (!m_valid)
+		return;
+
+	delete m_separatorAction;
+	delete m_openAction;
+	delete m_copyAction;
+}
 
 void LinksPluginDocument::handleView(KTextEditor::Document* document, KTextEditor::View* view) {
 	Q_UNUSED(document);
@@ -53,33 +60,29 @@ void LinksPluginDocument::handleView(KTextEditor::Document* document, KTextEdito
 	connect(view, SIGNAL(contextMenuAboutToShow(KTextEditor::View*, QMenu*)), this, SLOT(modifyContextMenu(KTextEditor::View*, QMenu*)));
 }
 
-void LinksPluginDocument::documentFirstChange(KTextEditor::Document* document) {
-	Q_UNUSED(document);
-
-	disconnect(m_document, SIGNAL(textChanged(KTextEditor::Document*)), this, SLOT(documentFirstChange(KTextEditor::Document*)));
+void LinksPluginDocument::documentFirstChange() {
+	disconnect(m_document, SIGNAL(textChanged(KTextEditor::Document*)), this, SLOT(documentFirstChange()));
 
 	connect(m_document, SIGNAL(textInserted(KTextEditor::Document*, const KTextEditor::Range&)), this, SLOT(documentTextInserted(KTextEditor::Document*, const KTextEditor::Range&)));
 	connect(m_document, SIGNAL(textRemoved(KTextEditor::Document*, const KTextEditor::Range&)), this, SLOT(documentTextRemoved(KTextEditor::Document*, const KTextEditor::Range&)));
 
-	connect(m_document, SIGNAL(aboutToClose(KTextEditor::Document*)), this, SLOT(documentAboutToCloseOrReload(KTextEditor::Document*)));
-	connect(m_document, SIGNAL(aboutToReload(KTextEditor::Document*)), this, SLOT(documentAboutToCloseOrReload(KTextEditor::Document*)));
+	connect(m_document, SIGNAL(aboutToClose(KTextEditor::Document*)), this, SLOT(documentAboutToCloseOrReload()));
+	connect(m_document, SIGNAL(aboutToReload(KTextEditor::Document*)), this, SLOT(documentAboutToCloseOrReload()));
 
-	scanRange(document->documentRange());
+	scanRange(m_document->documentRange());
 }
 
-void LinksPluginDocument::documentAboutToCloseOrReload(KTextEditor::Document* document) {
-	Q_UNUSED(document);
-
+void LinksPluginDocument::documentAboutToCloseOrReload() {
 	m_cursors.clear();
 	m_feedback.m_ranges.clear();
 
 	disconnect(m_document, SIGNAL(textInserted(KTextEditor::Document*, const KTextEditor::Range&)), this, SLOT(documentTextInserted(KTextEditor::Document*, const KTextEditor::Range&)));
 	disconnect(m_document, SIGNAL(textRemoved(KTextEditor::Document*, const KTextEditor::Range&)), this, SLOT(documentTextRemoved(KTextEditor::Document*, const KTextEditor::Range&)));
 
-	disconnect(m_document, SIGNAL(aboutToClose(KTextEditor::Document*)), this, SLOT(documentAboutToCloseOrReload(KTextEditor::Document*)));
-	disconnect(m_document, SIGNAL(aboutToReload(KTextEditor::Document*)), this, SLOT(documentAboutToCloseOrReload(KTextEditor::Document*)));
+	disconnect(m_document, SIGNAL(aboutToClose(KTextEditor::Document*)), this, SLOT(documentAboutToCloseOrReload()));
+	disconnect(m_document, SIGNAL(aboutToReload(KTextEditor::Document*)), this, SLOT(documentAboutToCloseOrReload()));
 
-	connect(m_document, SIGNAL(textChanged(KTextEditor::Document*)), this, SLOT(documentFirstChange(KTextEditor::Document*)));
+	connect(m_document, SIGNAL(textChanged(KTextEditor::Document*)), this, SLOT(documentFirstChange()));
 }
 
 void LinksPluginDocument::documentTextInserted(KTextEditor::Document* document, const KTextEditor::Range& range) {
@@ -138,7 +141,7 @@ void LinksPluginDocument::scanRange(KTextEditor::Range range) {
 	}
 }
 
-void LinksPluginDocument::modifyContextMenu(KTextEditor::View *view, QMenu* menu) {
+void LinksPluginDocument::modifyContextMenu(KTextEditor::View *view, QMenu* menu) const {
 	QAction* firstAction = menu->actions().first();
 
 	const bool isLink = !m_feedback.m_ranges[view].isEmpty();
@@ -163,7 +166,7 @@ void LinksPluginDocument::modifyContextMenu(KTextEditor::View *view, QMenu* menu
 	}
 }
 
-void LinksPluginDocument::openUrl() {
+void LinksPluginDocument::openUrl() const {
 	QHashIterator<KTextEditor::View*, QSet<KTextEditor::MovingRange*> > it(m_feedback.m_ranges);
 	while (it.hasNext()) {
 		it.next();
@@ -182,7 +185,7 @@ void LinksPluginDocument::openUrl() {
 	}
 }
 
-void LinksPluginDocument::copyUrl() {
+void LinksPluginDocument::copyUrl() const {
 	QHashIterator<KTextEditor::View*, QSet<KTextEditor::MovingRange*> > it(m_feedback.m_ranges);
 	while (it.hasNext()) {
 		it.next();

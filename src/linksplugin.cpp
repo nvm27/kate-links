@@ -21,7 +21,7 @@ void LinksPlugin::addDocument(KTextEditor::Document *document) {
 	if (documentPlugin->isValid())
 		m_docs.append(documentPlugin);
 	else {
-		kDebug() << "SearchInterface or MovingInterface not implemented. Seriously? Don't know what to do now...";
+		kDebug() << "SearchInterface or MovingInterface not implemented, although needed.";
 
 		delete documentPlugin;
 	}

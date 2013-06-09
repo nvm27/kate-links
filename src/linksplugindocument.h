@@ -36,8 +36,8 @@ private:
 
 	struct MovingCursorCompare {
 		inline bool operator() (const KTextEditor::MovingCursor* const& lhs, const KTextEditor::MovingCursor* const& rhs) {
-			if (!lhs->isValid())
-				kDebug() << "comaprision between invalid cursors: " << *lhs << "(" << lhs->range() << ") vs. " << *rhs;
+			//if (!lhs->isValid())
+			//	kDebug() << "comaprision between invalid cursors: " << *lhs << " vs. " << *rhs;
 
 			return *lhs < *rhs;
 		}
@@ -47,19 +47,21 @@ public:
 	LinksPluginDocument(KTextEditor::Document* document);
 	~LinksPluginDocument();
 
-	inline bool isValid() { return m_valid; }
-	inline KTextEditor::Document* document() { return m_document; }
+	inline bool isValid() const { return m_valid; }
+	inline KTextEditor::Document* document() const { return m_document; }
 
 public slots:
-	void handleView(KTextEditor::Document* document, KTextEditor::View* view);
-	void modifyContextMenu(KTextEditor::View* view, QMenu* menu);
-	void documentFirstChange(KTextEditor::Document* document);
+	void documentFirstChange();
+	void documentAboutToCloseOrReload();
+
 	void documentTextInserted(KTextEditor::Document* document, const KTextEditor::Range& range);
 	void documentTextRemoved(KTextEditor::Document* document, const KTextEditor::Range& range);
-	void documentAboutToCloseOrReload(KTextEditor::Document* document);
 
-	void openUrl();
-	void copyUrl();
+	void handleView(KTextEditor::Document* document, KTextEditor::View* view);
+	void modifyContextMenu(KTextEditor::View* view, QMenu* menu) const;
+
+	void openUrl() const;
+	void copyUrl() const;
 
 private:
 	void rescanLine(int line);
