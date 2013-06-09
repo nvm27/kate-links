@@ -6,12 +6,12 @@ Plugin for KTextEditor (and Kate) which aim is to highlight links in document an
 Building kate-links plugin from source:
 --------------------------------------------------
 
-Simply write those commands in kate-links folder:
-$ mkdir build
-$ cd build
-$ cmake .. -DCMAKE\_INSTALL\_PREFIX=/usr
-$ make
-$ sudo make install
+Simply write those commands in kate-links folder:<br />
+$ mkdir build<br />
+$ cd build<br />
+$ cmake .. -DCMAKE\_INSTALL\_PREFIX=/usr<br />
+$ make<br />
+$ sudo make install<br />
 
--DCMAKE\_INSTALL\_PREFIX option defines the path where kate-links will be installed.
+_-DCMAKE\_INSTALL\_PREFIX_ option defines the path where kate-links will be installed.
 It should be the same as KDE installation path (usually "/usr" is ok).
