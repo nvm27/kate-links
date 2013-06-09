@@ -35,7 +35,7 @@ private:
 	};
 
 	struct MovingCursorCompare {
-		bool operator() (const KTextEditor::MovingCursor* const& lhs, const KTextEditor::MovingCursor* const& rhs) {
+		inline bool operator() (const KTextEditor::MovingCursor* const& lhs, const KTextEditor::MovingCursor* const& rhs) {
 			if (!lhs->isValid())
 				kDebug() << "comaprision between invalid cursors: " << *lhs << "(" << lhs->range() << ") vs. " << *rhs;
 
@@ -57,7 +57,6 @@ public slots:
 	void documentTextInserted(KTextEditor::Document* document, const KTextEditor::Range& range);
 	void documentTextRemoved(KTextEditor::Document* document, const KTextEditor::Range& range);
 	void documentAboutToCloseOrReload(KTextEditor::Document* document);
-	void documentReloaded(KTextEditor::Document* document);
 
 	void openUrl();
 	void copyUrl();

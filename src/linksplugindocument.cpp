@@ -54,14 +54,15 @@ void LinksPluginDocument::handleView(KTextEditor::Document* document, KTextEdito
 }
 
 void LinksPluginDocument::documentFirstChange(KTextEditor::Document* document) {
-	disconnect(document, SIGNAL(textChanged(KTextEditor::Document*)), this, SLOT(documentFirstChange(KTextEditor::Document*)));
+	Q_UNUSED(document);
 
-	connect(document, SIGNAL(textInserted(KTextEditor::Document*, const KTextEditor::Range&)), this, SLOT(documentTextInserted(KTextEditor::Document*, const KTextEditor::Range&)));
-	connect(document, SIGNAL(textRemoved(KTextEditor::Document*, const KTextEditor::Range&)), this, SLOT(documentTextRemoved(KTextEditor::Document*, const KTextEditor::Range&)));
+	disconnect(m_document, SIGNAL(textChanged(KTextEditor::Document*)), this, SLOT(documentFirstChange(KTextEditor::Document*)));
 
-	connect(document, SIGNAL(aboutToClose(KTextEditor::Document*)), this, SLOT(documentAboutToCloseOrReload(KTextEditor::Document*)));
-	connect(document, SIGNAL(aboutToReload(KTextEditor::Document*)), this, SLOT(documentAboutToCloseOrReload(KTextEditor::Document*)));
-	connect(document, SIGNAL(reloaded(KTextEditor::Document*)), this, SLOT(documentReloaded(KTextEditor::Document*)));
+	connect(m_document, SIGNAL(textInserted(KTextEditor::Document*, const KTextEditor::Range&)), this, SLOT(documentTextInserted(KTextEditor::Document*, const KTextEditor::Range&)));
+	connect(m_document, SIGNAL(textRemoved(KTextEditor::Document*, const KTextEditor::Range&)), this, SLOT(documentTextRemoved(KTextEditor::Document*, const KTextEditor::Range&)));
+
+	connect(m_document, SIGNAL(aboutToClose(KTextEditor::Document*)), this, SLOT(documentAboutToCloseOrReload(KTextEditor::Document*)));
+	connect(m_document, SIGNAL(aboutToReload(KTextEditor::Document*)), this, SLOT(documentAboutToCloseOrReload(KTextEditor::Document*)));
 
 	scanRange(document->documentRange());
 }
@@ -71,12 +72,14 @@ void LinksPluginDocument::documentAboutToCloseOrReload(KTextEditor::Document* do
 
 	m_cursors.clear();
 	m_feedback.m_ranges.clear();
-}
 
-void LinksPluginDocument::documentReloaded(KTextEditor::Document* document) {
-	Q_UNUSED(document);
+	disconnect(m_document, SIGNAL(textInserted(KTextEditor::Document*, const KTextEditor::Range&)), this, SLOT(documentTextInserted(KTextEditor::Document*, const KTextEditor::Range&)));
+	disconnect(m_document, SIGNAL(textRemoved(KTextEditor::Document*, const KTextEditor::Range&)), this, SLOT(documentTextRemoved(KTextEditor::Document*, const KTextEditor::Range&)));
 
-	kDebug() << "document reloaded";
+	disconnect(m_document, SIGNAL(aboutToClose(KTextEditor::Document*)), this, SLOT(documentAboutToCloseOrReload(KTextEditor::Document*)));
+	disconnect(m_document, SIGNAL(aboutToReload(KTextEditor::Document*)), this, SLOT(documentAboutToCloseOrReload(KTextEditor::Document*)));
+
+	connect(m_document, SIGNAL(textChanged(KTextEditor::Document*)), this, SLOT(documentFirstChange(KTextEditor::Document*)));
 }
 
 void LinksPluginDocument::documentTextInserted(KTextEditor::Document* document, const KTextEditor::Range& range) {
@@ -88,7 +91,6 @@ void LinksPluginDocument::documentTextInserted(KTextEditor::Document* document, 
 void LinksPluginDocument::documentTextRemoved(KTextEditor::Document* document, const KTextEditor::Range& range) {
 	Q_UNUSED(document);
 
-	kDebug() << "text removed: " << range;
 	rescanLine(range.start().line());
 }
 
@@ -227,9 +229,8 @@ void LinksPluginDocument::LinksFeedback::rangeEmpty(KTextEditor::MovingRange* ra
 
 void LinksPluginDocument::LinksFeedback::rangeInvalid(KTextEditor::MovingRange* range) {
 	kDebug() << "range becomes invalid";
-	//m_plugin->deleteMovingRange(range);
 
-	// happens when closing document, but we have m_cursors and m_rages cleared
+	// happens when closing document, but we already have m_cursors and m_rages cleared
 	delete range;
 }
 
